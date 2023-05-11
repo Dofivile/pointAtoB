@@ -1,0 +1,196 @@
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.PriorityQueue;
+import java.util.Set;
+
+public class Graph implements GraphInterface<Town,Road>{
+
+    private Map<Town, Set<Road>> adjacencyMap;
+
+    public Graph() {
+        adjacencyMap = new HashMap<>();
+    }
+
+    @Override
+    public Road getEdge(Town sourceVertex, Town destinationVertex) {
+        if (sourceVertex == null || destinationVertex == null) {
+            return null;
+        }
+        Set<Road> roads = adjacencyMap.get(sourceVertex);
+        if (roads == null) {
+            return null;
+        }
+        for (Road road : roads) {
+            if (road.getDestination().equals(destinationVertex) && road.getSource().equals(sourceVertex)) {
+                return road;
+            }
+            if (road.getSource().equals(destinationVertex) && road.getDestination().equals(sourceVertex)) {
+                return new Road(destinationVertex, sourceVertex, road.getWeight(), road.getName());
+            }
+        }
+        return null;
+    }
+
+
+
+
+    @Override
+    public Road addEdge(Town sourceVertex, Town destinationVertex, int weight, String description) {
+        if (sourceVertex == null || destinationVertex == null) {
+            throw new NullPointerException();
+        }
+        if (!containsVertex(sourceVertex) || !containsVertex(destinationVertex)) {
+            throw new IllegalArgumentException("Both vertices must be present in the graph");
+        }
+        Road newRoad = new Road(sourceVertex, destinationVertex, weight, description);
+        
+        Set<Road> sourceRoads = adjacencyMap.get(sourceVertex);
+        sourceRoads.add(newRoad);
+
+        // Add road to the set associated with the destination vertex as well
+        Set<Road> destinationRoads = adjacencyMap.get(destinationVertex);
+        destinationRoads.add(newRoad);
+
+        return newRoad;
+    }
+
+
+    @Override
+    public boolean addVertex(Town v) {
+        if (v == null) {
+            throw new NullPointerException();
+        }
+        if (adjacencyMap.containsKey(v)) {
+            return false;
+        }
+        adjacencyMap.put(v, new HashSet<>());
+        return true;
+    }
+
+    @Override
+    public boolean containsEdge(Town sourceVertex, Town destinationVertex) {
+        Road road = getEdge(sourceVertex, destinationVertex);
+        return road != null;
+    }
+
+    @Override
+    public boolean containsVertex(Town v) {
+        return adjacencyMap.containsKey(v);
+    }
+
+    @Override
+    public Set<Road> edgeSet() {
+        Set<Road> result = new HashSet<>();
+        for (Set<Road> roads : adjacencyMap.values()) {
+            result.addAll(roads);
+        }
+        return result;
+    }
+
+    @Override
+    public Set<Road> edgesOf(Town vertex) {
+        if (vertex == null) {
+            throw new NullPointerException();
+        }
+        Set<Road> roads = adjacencyMap.get(vertex);
+        if (roads == null) {
+            throw new IllegalArgumentException("Vertex not found in graph");
+        }
+        return new HashSet<>(roads);
+    }
+
+    @Override
+    public Road removeEdge(Town sourceVertex, Town destinationVertex, int weight, String description) {
+        if (sourceVertex == null || destinationVertex == null) {
+            return null;
+        }
+        Set<Road> roads = adjacencyMap.get(sourceVertex);
+        if (roads == null) {
+            return null;
+        }
+        for (Road road : roads) {
+            if (road.getDestination().equals(destinationVertex) && (weight < 0 || road.getWeight() == weight) && (description == null || road.getName().equals(description))) {
+                roads.remove(road);
+                return road;
+            }
+        }
+        return null;
+    }
+
+    @Override
+    public boolean removeVertex(Town v) {
+        if (v == null || !adjacencyMap.containsKey(v)) {
+            return false;
+        }
+        for (Set<Road> roads : adjacencyMap.values()) {
+            roads.removeIf(road -> road.getDestination().equals(v));
+        }
+        adjacencyMap.remove(v);
+        return true;
+    }
+
+    @Override
+    public Set<Town> vertexSet() {
+        return new HashSet<>(adjacencyMap.keySet());
+    }
+
+    @Override
+    public ArrayList<String> shortestPath(Town sourceVertex, Town destinationVertex) {
+        dijkstraShortestPath(sourceVertex);
+        ArrayList<String> path = new ArrayList<>();
+        Town current = destinationVertex;
+
+        // Check if a path exists, if not return an empty list
+        if (current.getPrevious() == null && !current.equals(sourceVertex)) {
+            return path;
+        }
+
+        while (current != null) {
+            Town previous = current.getPrevious();
+            if (previous != null) {
+                Road edge = getEdge(previous, current);
+                path.add(0, previous + " via " + edge.getName() + " to " + current + " " + edge.getWeight() + " mi");
+            }
+            current = previous;
+        }
+
+        return path;
+    }
+
+
+    @Override
+    public void dijkstraShortestPath(Town sourceVertex) {
+        if (sourceVertex == null || !adjacencyMap.containsKey(sourceVertex)) {
+            throw new IllegalArgumentException("Source vertex not found in graph");
+        }
+
+        PriorityQueue<Town> priorityQueue = new PriorityQueue<>();
+        for (Town town : adjacencyMap.keySet()) {
+            if (town.equals(sourceVertex)) {
+                town.setDistance(0);
+            } else {
+                town.setDistance(Integer.MAX_VALUE);
+            }
+            town.setPrevious(null);
+            priorityQueue.add(town);
+        }
+
+        while (!priorityQueue.isEmpty()) {
+            Town current = priorityQueue.poll();
+
+            Set<Road> neighbors = adjacencyMap.get(current);
+            for (Road road : neighbors) {
+                Town neighbor = (road.getSource().equals(current)) ? road.getDestination() : road.getSource();
+                int newDistance = current.getDistance() == Integer.MAX_VALUE ? Integer.MAX_VALUE : current.getDistance() + road.getWeight();
+                if (newDistance < neighbor.getDistance()) {
+                    priorityQueue.remove(neighbor);
+                    neighbor.setDistance(newDistance);
+                    neighbor.setPrevious(current);
+                    priorityQueue.add(neighbor);
+                }
+            }
+        }
+    }
+    }
